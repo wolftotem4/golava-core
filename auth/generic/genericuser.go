@@ -2,7 +2,7 @@ package generic
 
 type GenericUser struct {
 	ID            int     `db:"id" gorm:"id" json:"id"`
-	Name          string  `db:"name" gorm:"name" json:"name"`
+	Username      string  `db:"username" gorm:"username" json:"username"`
 	Password      string  `db:"password" gorm:"password" json:"-"`
 	RememberToken *string `db:"remember_token" gorm:"remember_token" json:"-"`
 	CreatedAt     string  `db:"created_at" gorm:"created_at" json:"created_at"`
