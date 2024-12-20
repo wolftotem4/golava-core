@@ -1,6 +1,6 @@
 package generic
 
-type GenericUser struct {
+type User struct {
 	ID            int     `db:"id" gorm:"id" json:"id"`
 	Username      string  `db:"username" gorm:"username" json:"username"`
 	Password      string  `db:"password" gorm:"password" json:"-"`
@@ -9,23 +9,23 @@ type GenericUser struct {
 	UpdatedAt     string  `db:"updated_at" gorm:"updated_at" json:"updated_at"`
 }
 
-func (u *GenericUser) GetAuthIdentifierName() string {
+func (u *User) GetAuthIdentifierName() string {
 	return "id"
 }
 
-func (u *GenericUser) GetAuthIdentifier() interface{} {
+func (u *User) GetAuthIdentifier() interface{} {
 	return u.ID
 }
 
-func (u *GenericUser) GetAuthPasswordName() string {
+func (u *User) GetAuthPasswordName() string {
 	return "password"
 }
 
-func (u *GenericUser) GetAuthPassword() string {
+func (u *User) GetAuthPassword() string {
 	return u.Password
 }
 
-func (u *GenericUser) GetRememberToken() string {
+func (u *User) GetRememberToken() string {
 	if u.RememberToken == nil {
 		return ""
 	}
@@ -33,10 +33,10 @@ func (u *GenericUser) GetRememberToken() string {
 	return *u.RememberToken
 }
 
-func (u *GenericUser) SetRememberToken(token string) {
+func (u *User) SetRememberToken(token string) {
 	u.RememberToken = &token
 }
 
-func (u *GenericUser) GetRememberTokenName() string {
+func (u *User) GetRememberTokenName() string {
 	return "remember_token"
 }
