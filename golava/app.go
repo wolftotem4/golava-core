@@ -1,6 +1,7 @@
 package golava
 
 import (
+	ut "github.com/go-playground/universal-translator"
 	"github.com/wolftotem4/golava-core/cookie"
 	"github.com/wolftotem4/golava-core/encryption"
 	"github.com/wolftotem4/golava-core/hashing"
@@ -21,6 +22,8 @@ type App struct {
 	Encryption     encryption.IEncrypter
 	Hashing        hashing.Hasher
 	SessionFactory *session.SessionFactory
+	Translation    *ut.UniversalTranslator
+	AppLocale      string
 }
 
 func (a *App) Base() *App {

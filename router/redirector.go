@@ -2,7 +2,7 @@ package router
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/wolftotem4/golava-core/httputils"
+	"github.com/wolftotem4/golava-core/http/utils"
 	"github.com/wolftotem4/golava-core/session"
 )
 
@@ -26,7 +26,7 @@ func (r *Redirector) SetIntendedUrl(url string) {
 }
 
 func (r *Redirector) Guest(code int, path string) {
-	if r.GIN.Request.Method == "GET" && !httputils.ExpectJson(r.GIN.Accepted) {
+	if r.GIN.Request.Method == "GET" && !utils.ExpectJson(r.GIN.Accepted) {
 		r.SetIntendedUrl(r.GIN.Request.URL.String())
 	} else {
 		r.SetIntendedUrl(r.Previous())

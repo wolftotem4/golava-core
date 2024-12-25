@@ -6,7 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/wolftotem4/golava-core/cookie"
-	"github.com/wolftotem4/golava-core/httputils"
+	"github.com/wolftotem4/golava-core/http/utils"
 	"github.com/wolftotem4/golava-core/instance"
 )
 
@@ -41,7 +41,7 @@ func GetCsrfTokenFromXsrf(c *gin.Context) string {
 func VerifyCsrfToken(c *gin.Context) {
 	instance := instance.MustGetInstance(c)
 
-	if !httputils.IsReading(c.Request.Method) {
+	if !utils.IsReading(c.Request.Method) {
 		if GetCsrfToken(c) != instance.Session.Store.Token() {
 			c.Error(ErrTokenMismatch)
 			c.Abort()

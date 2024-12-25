@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/gin-gonic/gin"
+	ut "github.com/go-playground/universal-translator"
 	"github.com/wolftotem4/golava-core/auth"
 	"github.com/wolftotem4/golava-core/golava"
 	"github.com/wolftotem4/golava-core/router"
@@ -15,6 +16,7 @@ type Instance struct {
 	Session    *session.SessionManager
 	Auth       auth.Guard
 	Redirector *router.Redirector
+	Locale     string
 }
 
 func NewInstance(app golava.GolavaApp) gin.HandlerFunc {
@@ -49,4 +51,16 @@ func MustGetInstance(c *gin.Context) *Instance {
 		panic(err)
 	}
 	return instance
+}
+
+func (i *Instance) GetUserPreferredLocale() string {
+	if i.Locale == "" {
+		return i.App.Base().AppLocale
+	}
+	return i.Locale
+}
+
+func (i *Instance) GetUserPreferredTranslator() ut.Translator {
+	trans, _ := i.App.Base().Translation.GetTranslator(i.GetUserPreferredLocale())
+	return trans
 }
