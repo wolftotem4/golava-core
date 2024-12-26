@@ -5,7 +5,7 @@ import (
 	"github.com/wolftotem4/golava-core/cookie"
 	"github.com/wolftotem4/golava-core/encryption"
 	"github.com/wolftotem4/golava-core/hashing"
-	"github.com/wolftotem4/golava-core/router"
+	"github.com/wolftotem4/golava-core/routing"
 	"github.com/wolftotem4/golava-core/session"
 )
 
@@ -17,7 +17,7 @@ type App struct {
 	Name           string
 	Debug          bool
 	AppKey         []byte
-	Router         *router.Router
+	Router         *routing.Router
 	Cookie         cookie.IEncryptableCookieManager
 	Encryption     encryption.IEncrypter
 	Hashing        hashing.Hasher

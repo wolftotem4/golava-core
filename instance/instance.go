@@ -7,7 +7,7 @@ import (
 	ut "github.com/go-playground/universal-translator"
 	"github.com/wolftotem4/golava-core/auth"
 	"github.com/wolftotem4/golava-core/golava"
-	"github.com/wolftotem4/golava-core/router"
+	"github.com/wolftotem4/golava-core/routing"
 	"github.com/wolftotem4/golava-core/session"
 )
 
@@ -15,7 +15,7 @@ type Instance struct {
 	App        golava.GolavaApp
 	Session    *session.SessionManager
 	Auth       auth.Guard
-	Redirector *router.Redirector
+	Redirector *routing.Redirector
 	Locale     string
 }
 
@@ -23,7 +23,7 @@ func NewInstance(app golava.GolavaApp) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Set("instance", &Instance{
 			App: app,
-			Redirector: &router.Redirector{
+			Redirector: &routing.Redirector{
 				Router: app.Base().Router,
 				GIN:    c,
 			},
