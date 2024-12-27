@@ -9,5 +9,5 @@ type Guard interface {
 	ID() any
 	Validate(ctx context.Context, credentials map[string]any) (bool, error)
 	HasUser() bool
-	SetUser(user Authenticatable)
+	SetUser(user Authenticatable) error
 }

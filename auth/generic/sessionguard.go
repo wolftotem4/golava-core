@@ -8,7 +8,9 @@ import (
 	"time"
 
 	"github.com/wolftotem4/golava-core/auth"
+	"github.com/wolftotem4/golava-core/auth/callback"
 	"github.com/wolftotem4/golava-core/cookie"
+	"github.com/wolftotem4/golava-core/hashing"
 	"github.com/wolftotem4/golava-core/session"
 	"github.com/wolftotem4/golava-core/util"
 )
@@ -17,15 +19,43 @@ type SessionGuard struct {
 	Name             string
 	Session          *session.SessionManager
 	Cookie           cookie.IEncryptableCookieManager
+	Hasher           hashing.Hasher
 	Request          *http.Request
 	RememberDuration time.Duration
 	Provider         auth.UserProvider
 
-	user auth.Authenticatable
+	// Listen to auth events.
+	//
+	// Recommend attaching this to an event emitter.
+	//
+	// Example:
+	//
+	// 	guard := &generic.SessionGuard{
+	// 		Callbacks: callback.Listen(struct {
+	// 			Attempting func(name string, credentials map[string]any, remember bool) error
+	// 		}{
+	// 			Attempting: func(name string, credentials map[string]any, remember bool) error {
+	// 				// do something
+	// 				return nil
+	// 			},
+	// 		}),
+	// 	}
+	//
+	// See [github.com/wolftotem4/golava-core/auth/callback] for more information.
+	Callbacks callback.Callbacks
+
+	user            auth.Authenticatable
+	viaRemember     bool
+	currentRecaller *auth.Recaller
+	userHash        string
 }
 
 func (sg *SessionGuard) User() auth.Authenticatable {
 	return sg.user
+}
+
+func (sg *SessionGuard) UserHash() string {
+	return sg.userHash
 }
 
 func (sg *SessionGuard) GetName() string {
@@ -36,8 +66,39 @@ func (sg *SessionGuard) GetRecallerName() string {
 	return fmt.Sprintf("remember_%s", sg.Name)
 }
 
-func (sg *SessionGuard) SetUser(user auth.Authenticatable) {
+func (sg *SessionGuard) SetUser(user auth.Authenticatable) error {
+	return sg.setUser(user, true, "")
+}
+
+func (sg *SessionGuard) setUser(user auth.Authenticatable, triggerAuthenticated bool, newhash string) error {
 	sg.user = user
+
+	if user == nil {
+		sg.reset()
+		return nil
+	}
+
+	if newhash != "" {
+		sg.userHash = newhash
+	} else {
+		sg.userHash = user.GetAuthPassword()
+	}
+
+	if triggerAuthenticated && sg.Callbacks != nil {
+		err := sg.Callbacks.Authenticated(sg.Name, user)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (sg *SessionGuard) reset() {
+	sg.user = nil
+	sg.userHash = ""
+	sg.viaRemember = false
+	sg.setCurrentRecaller("")
 }
 
 func (sg *SessionGuard) ID() any {
@@ -53,7 +114,7 @@ func (sg *SessionGuard) Validate(ctx context.Context, credentials map[string]any
 	return valid, err
 }
 
-func (sg *SessionGuard) validate(ctx context.Context, credentials map[string]any) (auth.Authenticatable, bool, error) {
+func (sg *SessionGuard) validate(ctx context.Context, credentials map[string]any, shouldLogin ...auth.ShouldLogin) (auth.Authenticatable, bool, error) {
 	user, err := sg.Provider.RetrieveByCredentials(ctx, credentials)
 	if errors.Is(err, auth.ErrUserNotFound) {
 		return nil, false, nil
@@ -62,6 +123,23 @@ func (sg *SessionGuard) validate(ctx context.Context, credentials map[string]any
 	}
 
 	valid, err := sg.Provider.ValidateCredentials(ctx, user, credentials)
+
+	if sg.Callbacks != nil {
+		err := sg.Callbacks.Validated(sg.Name, user)
+		if err != nil {
+			return user, false, err
+		}
+	}
+
+	for _, validate := range shouldLogin {
+		valid, err := validate(ctx, user)
+		if err != nil {
+			return user, false, err
+		} else if !valid {
+			return user, false, nil
+		}
+	}
+
 	return user, valid, err
 }
 
@@ -77,29 +155,48 @@ func (sg *SessionGuard) Guest() bool {
 	return !sg.Check()
 }
 
-func (sg *SessionGuard) Attempt(ctx context.Context, credentials map[string]any, remember bool) (bool, error) {
-	user, valid, err := sg.validate(ctx, credentials)
-	if err != nil {
-		return false, err
-	} else if !valid {
-		return false, nil
+func (sg *SessionGuard) Attempt(ctx context.Context, credentials map[string]any, remember bool, shouldLogin ...auth.ShouldLogin) (bool, error) {
+	if sg.Callbacks != nil {
+		err := sg.Callbacks.Attempting(sg.Name, credentials, remember)
+		if err != nil {
+			return false, err
+		}
 	}
 
-	err = sg.Provider.RehashPasswordIfRequired(ctx, user, credentials, false)
+	user, valid, err := sg.validate(ctx, credentials, shouldLogin...)
 	if err != nil {
+		return false, err
+	} else if valid {
+		newhash, err := sg.Provider.RehashPasswordIfRequired(ctx, user, credentials, false)
+		if err != nil {
+			return false, err
+		}
+
+		err = sg.login(ctx, user, remember, newhash)
+		if err != nil {
+			return false, err
+		}
+
+		return true, nil
+	}
+
+	if sg.Callbacks != nil {
+		err := sg.Callbacks.Failed(sg.Name, user)
 		return false, err
 	}
 
-	err = sg.Login(ctx, user, remember)
-	if err != nil {
-		return false, err
-	}
-
-	return true, nil
+	return false, nil
 }
 
 // Log a user into the application without sessions or cookies.
 func (sg *SessionGuard) Once(ctx context.Context, credentials map[string]any) (bool, error) {
+	if sg.Callbacks != nil {
+		err := sg.Callbacks.Attempting(sg.Name, credentials, false)
+		if err != nil {
+			return false, err
+		}
+	}
+
 	user, valid, err := sg.validate(ctx, credentials)
 	if err != nil {
 		return false, err
@@ -107,13 +204,12 @@ func (sg *SessionGuard) Once(ctx context.Context, credentials map[string]any) (b
 		return false, nil
 	}
 
-	err = sg.Provider.RehashPasswordIfRequired(ctx, user, credentials, false)
+	newhash, err := sg.Provider.RehashPasswordIfRequired(ctx, user, credentials, false)
 	if err != nil {
 		return false, err
 	}
 
-	sg.SetUser(user)
-	return true, nil
+	return true, sg.setUser(user, true, newhash)
 }
 
 // Log the given user ID into the application without sessions or cookies.
@@ -123,11 +219,14 @@ func (sg *SessionGuard) OnceUsingID(ctx context.Context, id any) (bool, error) {
 		return false, err
 	}
 
-	sg.SetUser(user)
-	return true, nil
+	return true, sg.setUser(user, true, "")
 }
 
 func (sg *SessionGuard) Login(ctx context.Context, user auth.Authenticatable, remember bool) error {
+	return sg.login(ctx, user, remember, "")
+}
+
+func (sg *SessionGuard) login(ctx context.Context, user auth.Authenticatable, remember bool, newhash string) error {
 	err := sg.updateSession(ctx, user.GetAuthIdentifier())
 	if err != nil {
 		return err
@@ -138,7 +237,14 @@ func (sg *SessionGuard) Login(ctx context.Context, user auth.Authenticatable, re
 		if err != nil {
 			return err
 		}
-		sg.createRecaller(user)
+		sg.createRecaller(user, newhash)
+	}
+
+	if sg.Callbacks != nil {
+		err := sg.Callbacks.Login(sg.Name, user, remember)
+		if err != nil {
+			return err
+		}
 	}
 
 	sg.Cookie.Encryption().Set(
@@ -147,9 +253,7 @@ func (sg *SessionGuard) Login(ctx context.Context, user auth.Authenticatable, re
 		cookie.WithMaxAge(int(sg.Session.Lifetime.Seconds())),
 	)
 
-	sg.SetUser(user)
-
-	return nil
+	return sg.setUser(user, true, newhash)
 }
 
 func (sg *SessionGuard) ensureRememberTokenIsSet(ctx context.Context, user auth.Authenticatable) error {
@@ -165,17 +269,27 @@ func (sg *SessionGuard) cycleRememberToken(ctx context.Context, user auth.Authen
 	return sg.Provider.UpdateRememberToken(ctx, user, token)
 }
 
-func (sg *SessionGuard) createRecaller(user auth.Authenticatable) {
+func (sg *SessionGuard) createRecaller(user auth.Authenticatable, newhash string) {
+	if newhash == "" {
+		newhash = user.GetAuthPassword()
+	}
+
 	recaller := auth.NewRecallerString(
 		user.GetAuthIdentifier(),
 		user.GetRememberToken(),
-		user.GetAuthPassword(),
+		newhash,
 	)
 	sg.Cookie.Encryption().Set(
 		sg.GetRecallerName(),
 		recaller,
 		cookie.WithMaxAge(int(sg.RememberDuration.Seconds())),
 	)
+
+	sg.setCurrentRecaller(auth.Recaller(recaller))
+}
+
+func (sg *SessionGuard) setCurrentRecaller(recaller auth.Recaller) {
+	sg.currentRecaller = &recaller
 }
 
 func (sg *SessionGuard) updateSession(ctx context.Context, id any) error {
@@ -203,19 +317,76 @@ func (sg *SessionGuard) Logout(ctx context.Context) error {
 		}
 	}
 
-	sg.SetUser(nil)
+	return sg.setUser(nil, false, "")
+}
+
+func (sg *SessionGuard) LogoutCurrentDevice(ctx context.Context) error {
+	user := sg.User()
+
+	sg.clearUserDataFromStorage()
+
+	if sg.Callbacks != nil {
+		err := sg.Callbacks.CurrentDeviceLogout(sg.Name, user)
+		if err != nil {
+			return err
+		}
+	}
+
+	return sg.setUser(nil, false, "")
+}
+
+func (sg *SessionGuard) LogoutOtherDevices(ctx context.Context, password string) error {
+	if sg.user == nil {
+		return nil
+	}
+
+	newhash, err := sg.rehashUserPasswordForDeviceLogout(ctx, sg.user, password)
+	if err != nil {
+		return err
+	}
+
+	if newhash != "" {
+		sg.userHash = newhash
+	}
+
+	if check, err := sg.checkRecaller(); err != nil {
+		return err
+	} else if check {
+		sg.createRecaller(sg.user, newhash)
+	}
+
+	if sg.Callbacks != nil {
+		return sg.Callbacks.OtherDeviceLogout(sg.Name, sg.user)
+	}
 
 	return nil
 }
 
 func (sg *SessionGuard) GetRecaller() (auth.Recaller, error) {
-	recaller, err := sg.Cookie.Encryption().Get(sg.GetRecallerName())
+	if check, err := sg.checkRecaller(); err != nil {
+		return "", err
+	} else if check {
+		return *sg.currentRecaller, nil
+	}
+
+	return "", nil
+}
+
+func (sg *SessionGuard) getRecaller() (auth.Recaller, error) {
+	if sg.currentRecaller != nil {
+		return *sg.currentRecaller, nil
+	}
+
+	value, err := sg.Cookie.Encryption().Get(sg.GetRecallerName())
 	if errors.Is(err, http.ErrNoCookie) {
 		return "", nil
 	} else if err != nil {
 		return "", err
 	}
-	return auth.Recaller(recaller), nil
+
+	recaller := auth.Recaller(value)
+	sg.setCurrentRecaller(recaller)
+	return recaller, nil
 }
 
 func (sg *SessionGuard) RestoreAuth(ctx context.Context) error {
@@ -228,6 +399,10 @@ func (sg *SessionGuard) RestoreAuth(ctx context.Context) error {
 	return err
 }
 
+func (sg *SessionGuard) ViaRemember() bool {
+	return sg.viaRemember
+}
+
 func (sg *SessionGuard) restoreFromSession(ctx context.Context) (bool, error) {
 	id, ok := sg.Session.Store.Get(sg.GetName())
 	if ok {
@@ -237,33 +412,84 @@ func (sg *SessionGuard) restoreFromSession(ctx context.Context) (bool, error) {
 		} else if err != nil {
 			return false, err
 		}
-		sg.SetUser(user)
-		return true, nil
+		return true, sg.setUser(user, true, "")
 	}
 	return false, nil
 }
 
 func (sg *SessionGuard) restoreFromRecaller(ctx context.Context) (bool, error) {
-	recaller, err := sg.GetRecaller()
+	user, err := sg.getRecallerUser(ctx)
 	if err != nil {
 		return false, err
 	}
 
-	if recaller != "" && recaller.Valid() {
-		user, err := sg.Provider.RetrieveByToken(ctx, recaller.ID(), recaller.Token())
-		if errors.Is(err, auth.ErrUserNotFound) {
-			return false, nil
-		} else if err != nil {
+	if user != nil {
+		err := sg.setUser(user, true, "")
+		if err != nil {
 			return false, err
 		}
-		sg.SetUser(user)
+
+		sg.viaRemember = true
 		return true, nil
 	}
 
 	return false, nil
 }
 
+func (sg *SessionGuard) getRecallerUser(ctx context.Context) (auth.Authenticatable, error) {
+	recaller, err := sg.getRecaller()
+	if err != nil {
+		return nil, err
+	}
+
+	if recaller != "" && recaller.Valid() {
+		user, err := sg.Provider.RetrieveByToken(ctx, recaller.ID(), recaller.Token())
+		if errors.Is(err, auth.ErrUserNotFound) {
+			return nil, nil
+		}
+		return user, err
+	}
+
+	return nil, nil
+}
+
+func (sg *SessionGuard) checkRecaller() (check bool, err error) {
+	if sg.viaRemember {
+		return true, nil
+	} else if sg.user == nil {
+		return false, nil
+	}
+
+	recaller, err := sg.getRecaller()
+	if err != nil {
+		return false, err
+	}
+
+	if recaller == "" || !recaller.Valid() {
+		return false, nil
+	}
+
+	userId := sg.user.GetAuthIdentifier()
+	if !recaller.MatchID(userId) {
+		return false, nil
+	}
+
+	return true, nil
+}
+
 func (sg *SessionGuard) clearUserDataFromStorage() {
 	sg.Session.Store.Remove(sg.GetName())
 	sg.Cookie.Forget(sg.GetRecallerName())
+}
+
+func (sg *SessionGuard) rehashUserPasswordForDeviceLogout(ctx context.Context, user auth.Authenticatable, password string) (newhash string, err error) {
+	check, err := sg.Hasher.Check(password, user.GetAuthPassword())
+	if err != nil {
+		return "", err
+	}
+	if !check {
+		return "", auth.ErrPasswordMismatch
+	}
+
+	return sg.Provider.RehashPasswordIfRequired(ctx, user, map[string]any{user.GetAuthPasswordName(): password}, true)
 }

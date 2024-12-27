@@ -8,5 +8,5 @@ type UserProvider interface {
 	UpdateRememberToken(ctx context.Context, user Authenticatable, token string) error
 	RetrieveByCredentials(ctx context.Context, credentials map[string]any) (Authenticatable, error)
 	ValidateCredentials(ctx context.Context, user Authenticatable, credentials map[string]any) (bool, error)
-	RehashPasswordIfRequired(ctx context.Context, user Authenticatable, credentials map[string]any, force bool) error
+	RehashPasswordIfRequired(ctx context.Context, user Authenticatable, credentials map[string]any, force bool) (newhash string, err error)
 }

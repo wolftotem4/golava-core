@@ -17,11 +17,30 @@ func (r Recaller) ID() string {
 }
 
 func (r Recaller) Token() string {
-	return strings.SplitN(string(r), "|", 3)[1]
+	parts := strings.SplitN(string(r), "|", 3)
+	if len(parts) > 1 {
+		return parts[1]
+	}
+	return ""
 }
 
 func (r Recaller) Hash() string {
-	return strings.SplitN(string(r), "|", 3)[2]
+	parts := strings.SplitN(string(r), "|", 3)
+	if len(parts) > 2 {
+		return parts[2]
+	}
+	return ""
+}
+
+func (r Recaller) MatchID(id any) bool {
+	switch id.(type) {
+	case string:
+		return r.ID() == id
+	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
+		return r.ID() == fmt.Sprintf("%d", id)
+	default:
+		return false
+	}
 }
 
 func NewRecaller(id any, token string, hash string) Recaller {
