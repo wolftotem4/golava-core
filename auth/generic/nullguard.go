@@ -12,7 +12,9 @@ func (ng *NullGuard) User() auth.Authenticatable {
 	return nil
 }
 
-func (ng *NullGuard) SetUser(user auth.Authenticatable) {}
+func (ng *NullGuard) SetUser(user auth.Authenticatable) error {
+	return nil
+}
 
 func (ng *NullGuard) ID() any {
 	return nil
