@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	ut "github.com/go-playground/universal-translator"
 	"github.com/wolftotem4/golava-core/auth"
+	"github.com/wolftotem4/golava-core/auth/generic"
 	"github.com/wolftotem4/golava-core/golava"
 	"github.com/wolftotem4/golava-core/lang"
 	"github.com/wolftotem4/golava-core/routing"
@@ -28,6 +29,7 @@ func NewInstance(app golava.GolavaApp) gin.HandlerFunc {
 				Router: app.Base().Router,
 				GIN:    c,
 			},
+			Auth: &generic.NullGuard{},
 		})
 
 		c.Next()
