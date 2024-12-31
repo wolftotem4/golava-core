@@ -113,7 +113,7 @@ func (s *Store) compactForStorage() {
 	}
 }
 
-func (s *Store) Save(ctx context.Context) error {
+func (s *Store) Save(ctx context.Context, data ClientData) error {
 	s.AgeFlashData()
 
 	s.compactForStorage()
@@ -123,7 +123,10 @@ func (s *Store) Save(ctx context.Context) error {
 		return err
 	}
 
-	return s.Handler.Write(ctx, s.ID, payload)
+	return s.Handler.Write(ctx, s.ID, SessionData{
+		ClientData: data,
+		Payload:    payload,
+	})
 }
 
 func (s *Store) FlashInput(value any) error {

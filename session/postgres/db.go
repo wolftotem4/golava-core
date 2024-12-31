@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"errors"
 	"time"
+
+	"github.com/wolftotem4/golava-core/session"
 )
 
 type PostgresSessionHandler struct {
@@ -26,12 +28,12 @@ func (d *PostgresSessionHandler) Read(ctx context.Context, sessionId string) ([]
 	return payload, err
 }
 
-func (d *PostgresSessionHandler) Write(ctx context.Context, sessionId string, payload []byte) error {
+func (d *PostgresSessionHandler) Write(ctx context.Context, sessionId string, data session.SessionData) error {
 	now := time.Now().Unix()
 	_, err := d.DB.ExecContext(
 		ctx,
-		"INSERT INTO sessions (id, payload, last_activity) VALUES ($1, $2, $3) ON CONFLICT (id) DO UPDATE SET payload = $2, last_activity = $3;",
-		sessionId, payload, now,
+		"INSERT INTO sessions (id, user_id, ip_address, user_agent, payload, last_activity) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (id) DO UPDATE SET user_id = $2, ip_address = $3, user_agent = $4, payload = $5, last_activity = $6;",
+		sessionId, data.UserID, data.IPAddress, data.UserAgent, data.Payload, now,
 	)
 	return err
 }

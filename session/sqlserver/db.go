@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"errors"
 	"time"
+
+	"github.com/wolftotem4/golava-core/session"
 )
 
 type SQLServerSessionHandler struct {
@@ -26,19 +28,19 @@ func (d *SQLServerSessionHandler) Read(ctx context.Context, sessionId string) ([
 	return payload, err
 }
 
-func (d *SQLServerSessionHandler) Write(ctx context.Context, sessionId string, payload []byte) error {
+func (d *SQLServerSessionHandler) Write(ctx context.Context, sessionId string, data session.SessionData) error {
 	now := time.Now().Unix()
 	_, err := d.DB.ExecContext(
 		ctx,
 		`
 BEGIN tran
-	UPDATE sessions WITH (serializable) SET payload = $2, last_activity = $3 WHERE id = $1;
+	UPDATE sessions WITH (serializable) SET user_id = $2, ip_address = $3, user_agent = $4, payload = $5, last_activity = $6 WHERE id = $1;
 	IF @@rowcount = 0
 	BEGIN
-		INSERT INTO sessions (id, payload, last_activity) VALUES ($1, $2, $3);
+		INSERT INTO sessions (id, user_id, ip_address, user_agent, payload, last_activity) VALUES ($1, $2, $3, $4, $5, $6);
 	END
 COMMIT tran`,
-		sessionId, payload, now,
+		sessionId, data.UserID, data.IPAddress, data.UserAgent, data.Payload, now,
 	)
 	return err
 }

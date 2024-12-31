@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"errors"
 	"time"
+
+	"github.com/wolftotem4/golava-core/session"
 )
 
 type MySQLSessionHandler struct {
@@ -26,12 +28,12 @@ func (d *MySQLSessionHandler) Read(ctx context.Context, sessionId string) ([]byt
 	return payload, err
 }
 
-func (d *MySQLSessionHandler) Write(ctx context.Context, sessionId string, payload []byte) error {
+func (d *MySQLSessionHandler) Write(ctx context.Context, sessionId string, data session.SessionData) error {
 	now := time.Now().Unix()
 	_, err := d.DB.ExecContext(
 		ctx,
-		"INSERT INTO sessions (id, payload, last_activity) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE payload = ?, last_activity = ?",
-		sessionId, payload, now, payload, now,
+		"INSERT INTO sessions (id, user_id, ip_address, user_agent, payload, last_activity) VALUES (?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE user_id = ?, ip_address = ?, user_agent = ?, payload = ?, last_activity = ?",
+		sessionId, data.UserID, data.IPAddress, data.UserAgent, data.Payload, now, data.UserID, data.IPAddress, data.UserAgent, data.Payload, now,
 	)
 	return err
 }

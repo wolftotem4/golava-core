@@ -22,8 +22,8 @@ func (c *CookieSessionHandler) Read(ctx context.Context, sessionId string) ([]by
 	return []byte(value), err
 }
 
-func (c *CookieSessionHandler) Write(ctx context.Context, sessionId string, payload []byte) error {
-	c.Cookie.Encryption().Set(sessionId, string(payload), cookie.WithMaxAge(int(c.Expiration.Seconds())))
+func (c *CookieSessionHandler) Write(ctx context.Context, sessionId string, data SessionData) error {
+	c.Cookie.Encryption().Set(sessionId, string(data.Payload), cookie.WithMaxAge(int(c.Expiration.Seconds())))
 	return nil
 }
 
