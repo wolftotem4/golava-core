@@ -93,8 +93,9 @@ func WithAuth(c *gin.Context, data H) H {
 }
 
 func WithTranslator(c *gin.Context, data H) H {
-	translator := instance.MustGetInstance(c).GetUserPreferredTranslator()
-	data["T"] = lang.SilentTranslator{Translator: translator}
+	i := instance.MustGetInstance(c)
+	fallback := i.App.Base().Translation.GetFallback()
+	data["T"] = i.GetUserPreferredTranslator(lang.Fallback(fallback), lang.Soft)
 	return data
 }
 

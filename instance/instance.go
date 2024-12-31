@@ -7,6 +7,7 @@ import (
 	ut "github.com/go-playground/universal-translator"
 	"github.com/wolftotem4/golava-core/auth"
 	"github.com/wolftotem4/golava-core/golava"
+	"github.com/wolftotem4/golava-core/lang"
 	"github.com/wolftotem4/golava-core/routing"
 	"github.com/wolftotem4/golava-core/session"
 )
@@ -60,7 +61,13 @@ func (i *Instance) GetUserPreferredLocale() string {
 	return i.Locale
 }
 
-func (i *Instance) GetUserPreferredTranslator() ut.Translator {
+func (i *Instance) GetUserPreferredTranslator(options ...lang.TranslatorOption) ut.Translator {
 	trans, _ := i.App.Base().Translation.GetTranslator(i.GetUserPreferredLocale())
-	return trans
+
+	args := lang.TranslatorArgs{}
+	for _, opt := range options {
+		opt(&args)
+	}
+
+	return args.Apply(trans)
 }

@@ -1,4 +1,4 @@
-package lang
+package middleware
 
 import (
 	"github.com/gin-gonic/gin"
