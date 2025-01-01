@@ -26,7 +26,7 @@ func (r *Redirector) SetIntendedUrl(url string) {
 }
 
 func (r *Redirector) Guest(code int, path string) {
-	if r.GIN.Request.Method == "GET" && !utils.ExpectJson(r.GIN.Accepted) {
+	if r.GIN.Request.Method == "GET" && !utils.ExpectJson(r.GIN.GetHeader("Accept")) {
 		r.SetIntendedUrl(r.GIN.Request.URL.String())
 	} else {
 		r.SetIntendedUrl(r.Previous())
