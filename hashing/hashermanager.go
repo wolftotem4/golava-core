@@ -68,6 +68,11 @@ func (m *HasherManager) IdentifyHasher(hashedValue string) (string, bool) {
 	return hasher, ok
 }
 
+func (m *HasherManager) RegisterHasher(hasher string, h Hasher, prefix string) {
+	m.Hashers[hasher] = h
+	m.MapHashPrefix[prefix] = hasher
+}
+
 func IsDeprecated(hasher string) bool {
 	_, ok := deprecatedHashers[hasher]
 	return ok
