@@ -67,10 +67,10 @@ func (sg *SessionGuard) GetRecallerName() string {
 }
 
 func (sg *SessionGuard) SetUser(user auth.Authenticatable) error {
-	return sg.setUser(user, true, "")
+	return sg.setUser(context.TODO(), user, true, "")
 }
 
-func (sg *SessionGuard) setUser(user auth.Authenticatable, triggerAuthenticated bool, newhash string) error {
+func (sg *SessionGuard) setUser(ctx context.Context, user auth.Authenticatable, triggerAuthenticated bool, newhash string) error {
 	sg.user = user
 
 	if user == nil {
@@ -85,7 +85,7 @@ func (sg *SessionGuard) setUser(user auth.Authenticatable, triggerAuthenticated 
 	}
 
 	if triggerAuthenticated && sg.Callbacks != nil {
-		err := sg.Callbacks.Authenticated(sg.Name, user)
+		err := sg.Callbacks.Authenticated(ctx, sg.Name, user)
 		if err != nil {
 			return err
 		}
@@ -125,7 +125,7 @@ func (sg *SessionGuard) validate(ctx context.Context, credentials map[string]any
 	valid, err := sg.Provider.ValidateCredentials(ctx, user, credentials)
 
 	if sg.Callbacks != nil {
-		err := sg.Callbacks.Validated(sg.Name, user)
+		err := sg.Callbacks.Validated(ctx, sg.Name, user)
 		if err != nil {
 			return user, false, err
 		}
@@ -157,7 +157,7 @@ func (sg *SessionGuard) Guest() bool {
 
 func (sg *SessionGuard) Attempt(ctx context.Context, credentials map[string]any, remember bool, shouldLogin ...auth.ShouldLogin) (bool, error) {
 	if sg.Callbacks != nil {
-		err := sg.Callbacks.Attempting(sg.Name, credentials, remember)
+		err := sg.Callbacks.Attempting(ctx, sg.Name, credentials, remember)
 		if err != nil {
 			return false, err
 		}
@@ -181,7 +181,7 @@ func (sg *SessionGuard) Attempt(ctx context.Context, credentials map[string]any,
 	}
 
 	if sg.Callbacks != nil {
-		err := sg.Callbacks.Failed(sg.Name, user)
+		err := sg.Callbacks.Failed(ctx, sg.Name, user)
 		return false, err
 	}
 
@@ -191,7 +191,7 @@ func (sg *SessionGuard) Attempt(ctx context.Context, credentials map[string]any,
 // Log a user into the application without sessions or cookies.
 func (sg *SessionGuard) Once(ctx context.Context, credentials map[string]any) (bool, error) {
 	if sg.Callbacks != nil {
-		err := sg.Callbacks.Attempting(sg.Name, credentials, false)
+		err := sg.Callbacks.Attempting(ctx, sg.Name, credentials, false)
 		if err != nil {
 			return false, err
 		}
@@ -209,7 +209,7 @@ func (sg *SessionGuard) Once(ctx context.Context, credentials map[string]any) (b
 		return false, err
 	}
 
-	return true, sg.setUser(user, true, newhash)
+	return true, sg.setUser(ctx, user, true, newhash)
 }
 
 // Log the given user ID into the application without sessions or cookies.
@@ -219,7 +219,7 @@ func (sg *SessionGuard) OnceUsingID(ctx context.Context, id any) (bool, error) {
 		return false, err
 	}
 
-	return true, sg.setUser(user, true, "")
+	return true, sg.setUser(ctx, user, true, "")
 }
 
 func (sg *SessionGuard) Login(ctx context.Context, user auth.Authenticatable, remember bool) error {
@@ -241,7 +241,7 @@ func (sg *SessionGuard) login(ctx context.Context, user auth.Authenticatable, re
 	}
 
 	if sg.Callbacks != nil {
-		err := sg.Callbacks.Login(sg.Name, user, remember)
+		err := sg.Callbacks.Login(ctx, sg.Name, user, remember)
 		if err != nil {
 			return err
 		}
@@ -253,7 +253,7 @@ func (sg *SessionGuard) login(ctx context.Context, user auth.Authenticatable, re
 		cookie.WithMaxAge(int(sg.Session.Lifetime.Seconds())),
 	)
 
-	return sg.setUser(user, true, newhash)
+	return sg.setUser(ctx, user, true, newhash)
 }
 
 func (sg *SessionGuard) ensureRememberTokenIsSet(ctx context.Context, user auth.Authenticatable) error {
@@ -317,7 +317,7 @@ func (sg *SessionGuard) Logout(ctx context.Context) error {
 		}
 	}
 
-	return sg.setUser(nil, false, "")
+	return sg.setUser(ctx, nil, false, "")
 }
 
 func (sg *SessionGuard) LogoutCurrentDevice(ctx context.Context) error {
@@ -326,13 +326,13 @@ func (sg *SessionGuard) LogoutCurrentDevice(ctx context.Context) error {
 	sg.clearUserDataFromStorage()
 
 	if sg.Callbacks != nil {
-		err := sg.Callbacks.CurrentDeviceLogout(sg.Name, user)
+		err := sg.Callbacks.CurrentDeviceLogout(ctx, sg.Name, user)
 		if err != nil {
 			return err
 		}
 	}
 
-	return sg.setUser(nil, false, "")
+	return sg.setUser(ctx, nil, false, "")
 }
 
 func (sg *SessionGuard) LogoutOtherDevices(ctx context.Context, password string) error {
@@ -356,7 +356,7 @@ func (sg *SessionGuard) LogoutOtherDevices(ctx context.Context, password string)
 	}
 
 	if sg.Callbacks != nil {
-		return sg.Callbacks.OtherDeviceLogout(sg.Name, sg.user)
+		return sg.Callbacks.OtherDeviceLogout(ctx, sg.Name, sg.user)
 	}
 
 	return nil
@@ -412,7 +412,7 @@ func (sg *SessionGuard) restoreFromSession(ctx context.Context) (bool, error) {
 		} else if err != nil {
 			return false, err
 		}
-		return true, sg.setUser(user, true, "")
+		return true, sg.setUser(ctx, user, true, "")
 	}
 	return false, nil
 }
@@ -424,7 +424,7 @@ func (sg *SessionGuard) restoreFromRecaller(ctx context.Context) (bool, error) {
 	}
 
 	if user != nil {
-		err := sg.setUser(user, true, "")
+		err := sg.setUser(ctx, user, true, "")
 		if err != nil {
 			return false, err
 		}

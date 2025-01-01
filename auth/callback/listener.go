@@ -1,33 +1,37 @@
 package callback
 
-import "github.com/wolftotem4/golava-core/auth"
+import (
+	"context"
+
+	"github.com/wolftotem4/golava-core/auth"
+)
 
 type Attempting interface {
-	Attempting(name string, credentials map[string]any, remember bool) error
+	Attempting(ctx context.Context, name string, credentials map[string]any, remember bool) error
 }
 
 type Validated interface {
-	Validated(name string, user auth.Authenticatable) error
+	Validated(ctx context.Context, name string, user auth.Authenticatable) error
 }
 
 type Login interface {
-	Login(name string, user auth.Authenticatable, remember bool) error
+	Login(ctx context.Context, name string, user auth.Authenticatable, remember bool) error
 }
 
 type Authenticated interface {
-	Authenticated(name string, user auth.Authenticatable) error
+	Authenticated(ctx context.Context, name string, user auth.Authenticatable) error
 }
 
 type CurrentDeviceLogout interface {
-	CurrentDeviceLogout(name string, user auth.Authenticatable) error
+	CurrentDeviceLogout(ctx context.Context, name string, user auth.Authenticatable) error
 }
 
 type OtherDeviceLogout interface {
-	OtherDeviceLogout(name string, user auth.Authenticatable) error
+	OtherDeviceLogout(ctx context.Context, name string, user auth.Authenticatable) error
 }
 
 type Failed interface {
-	Failed(name string, user auth.Authenticatable) error
+	Failed(ctx context.Context, name string, user auth.Authenticatable) error
 }
 
 type Callbacks interface {
@@ -53,58 +57,58 @@ func Listen(base any) Callbacks {
 	return &listener{base}
 }
 
-func (e *listener) Attempting(name string, credentials map[string]any, remember bool) error {
+func (e *listener) Attempting(ctx context.Context, name string, credentials map[string]any, remember bool) error {
 	callback, ok := e.base.(Attempting)
 	if ok {
-		return callback.Attempting(name, credentials, remember)
+		return callback.Attempting(ctx, name, credentials, remember)
 	}
 	return nil
 }
 
-func (e *listener) Validated(name string, user auth.Authenticatable) error {
+func (e *listener) Validated(ctx context.Context, name string, user auth.Authenticatable) error {
 	callback, ok := e.base.(Validated)
 	if ok {
-		return callback.Validated(name, user)
+		return callback.Validated(ctx, name, user)
 	}
 	return nil
 }
 
-func (e *listener) Login(name string, user auth.Authenticatable, remember bool) error {
+func (e *listener) Login(ctx context.Context, name string, user auth.Authenticatable, remember bool) error {
 	callback, ok := e.base.(Login)
 	if ok {
-		return callback.Login(name, user, remember)
+		return callback.Login(ctx, name, user, remember)
 	}
 	return nil
 }
 
-func (e *listener) Authenticated(name string, user auth.Authenticatable) error {
+func (e *listener) Authenticated(ctx context.Context, name string, user auth.Authenticatable) error {
 	callback, ok := e.base.(Authenticated)
 	if ok {
-		return callback.Authenticated(name, user)
+		return callback.Authenticated(ctx, name, user)
 	}
 	return nil
 }
 
-func (e *listener) CurrentDeviceLogout(name string, user auth.Authenticatable) error {
+func (e *listener) CurrentDeviceLogout(ctx context.Context, name string, user auth.Authenticatable) error {
 	callback, ok := e.base.(CurrentDeviceLogout)
 	if ok {
-		return callback.CurrentDeviceLogout(name, user)
+		return callback.CurrentDeviceLogout(ctx, name, user)
 	}
 	return nil
 }
 
-func (e *listener) OtherDeviceLogout(name string, user auth.Authenticatable) error {
+func (e *listener) OtherDeviceLogout(ctx context.Context, name string, user auth.Authenticatable) error {
 	callback, ok := e.base.(OtherDeviceLogout)
 	if ok {
-		return callback.OtherDeviceLogout(name, user)
+		return callback.OtherDeviceLogout(ctx, name, user)
 	}
 	return nil
 }
 
-func (e *listener) Failed(name string, user auth.Authenticatable) error {
+func (e *listener) Failed(ctx context.Context, name string, user auth.Authenticatable) error {
 	callback, ok := e.base.(Failed)
 	if ok {
-		return callback.Failed(name, user)
+		return callback.Failed(ctx, name, user)
 	}
 	return nil
 }
