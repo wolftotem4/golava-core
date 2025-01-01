@@ -7,8 +7,8 @@ import (
 
 var ErrUnknownHasher = errors.New("unknown hasher")
 
-var deprecatedHashers = []string{
-	"bcrypt",
+var deprecatedHashers = map[string]struct{}{
+	"bcrypt": {},
 }
 
 type HasherManager struct {
@@ -47,7 +47,7 @@ func (m *HasherManager) Check(value string, hashedValue string) (bool, error) {
 
 func (m *HasherManager) NeedsRehash(hashedValue string) bool {
 	hasher, _ := m.IdentifyHasher(hashedValue)
-	if isDeprecated(hasher) {
+	if IsDeprecated(hasher) && hasher != m.DefaultHasher {
 		return true
 	}
 
@@ -68,12 +68,21 @@ func (m *HasherManager) IdentifyHasher(hashedValue string) (string, bool) {
 	return hasher, ok
 }
 
-func isDeprecated(hasher string) bool {
-	for _, h := range deprecatedHashers {
-		if hasher == h {
-			return true
-		}
-	}
+func IsDeprecated(hasher string) bool {
+	_, ok := deprecatedHashers[hasher]
+	return ok
+}
 
-	return false
+func MarkDeprecated(hasher string, hashers ...string) {
+	deprecatedHashers[hasher] = struct{}{}
+	for _, h := range hashers {
+		deprecatedHashers[h] = struct{}{}
+	}
+}
+
+func UnmarkDeprecated(hasher string, hashers ...string) {
+	delete(deprecatedHashers, hasher)
+	for _, h := range hashers {
+		delete(deprecatedHashers, h)
+	}
 }
