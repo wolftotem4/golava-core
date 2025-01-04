@@ -2,8 +2,6 @@ package session
 
 import (
 	"context"
-	"errors"
-	"net/http"
 	"time"
 
 	"github.com/wolftotem4/golava-core/cookie"
@@ -16,7 +14,7 @@ type CookieSessionHandler struct {
 
 func (c *CookieSessionHandler) Read(ctx context.Context, sessionId string) ([]byte, error) {
 	value, err := c.Cookie.Encryption().Get(sessionId)
-	if errors.Is(err, http.ErrNoCookie) {
+	if err != nil {
 		return nil, nil
 	}
 	return []byte(value), err
