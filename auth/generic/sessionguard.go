@@ -378,10 +378,8 @@ func (sg *SessionGuard) getRecaller() (auth.Recaller, error) {
 	}
 
 	value, err := sg.Cookie.Encryption().Get(sg.GetRecallerName())
-	if errors.Is(err, http.ErrNoCookie) {
+	if err != nil {
 		return "", nil
-	} else if err != nil {
-		return "", err
 	}
 
 	recaller := auth.Recaller(value)
