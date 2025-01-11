@@ -2,6 +2,7 @@ package auth
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -50,3 +51,24 @@ func NewRecaller(id any, token string, hash string) Recaller {
 func NewRecallerString(id any, token string, hash string) string {
 	return fmt.Sprintf("%v|%s|%s", id, token, hash)
 }
+
+type RecallerIdMorph func(id string) (any, error)
+
+var (
+	StringId RecallerIdMorph = func(id string) (any, error) {
+		return id, nil
+	}
+
+	IntId RecallerIdMorph = func(id string) (any, error) {
+		return strconv.Atoi(id)
+	}
+
+	Int32Id RecallerIdMorph = func(id string) (any, error) {
+		value, err := strconv.ParseInt(id, 10, 32)
+		return int32(value), err
+	}
+
+	Int64Id RecallerIdMorph = func(id string) (any, error) {
+		return strconv.ParseInt(id, 10, 64)
+	}
+)

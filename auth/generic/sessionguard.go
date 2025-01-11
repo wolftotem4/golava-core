@@ -23,6 +23,7 @@ type SessionGuard struct {
 	Request          *http.Request
 	RememberDuration time.Duration
 	Provider         auth.UserProvider
+	RecallerIdMorph  auth.RecallerIdMorph
 
 	// Listen to auth events.
 	//
@@ -441,7 +442,18 @@ func (sg *SessionGuard) getRecallerUser(ctx context.Context) (auth.Authenticatab
 	}
 
 	if recaller != "" && recaller.Valid() {
-		user, err := sg.Provider.RetrieveByToken(ctx, recaller.ID(), recaller.Token())
+		var id any
+		if sg.RecallerIdMorph != nil {
+			id, err = sg.RecallerIdMorph(recaller.ID())
+			if err != nil {
+				// ignore error
+				return nil, nil
+			}
+		} else {
+			id = recaller.ID()
+		}
+
+		user, err := sg.Provider.RetrieveByToken(ctx, id, recaller.Token())
 		if errors.Is(err, auth.ErrUserNotFound) {
 			return nil, nil
 		}
