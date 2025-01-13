@@ -16,13 +16,18 @@ func (r *Redirector) Redirect(code int, path string) {
 	r.GIN.Redirect(code, r.Router.URL(path).String())
 }
 
-func (r *Redirector) Intended(code int, path string) {
-	r.Session.Store.Flash("url.intended", path)
+func (r *Redirector) Intended(code int, defaults string) {
+	path, ok := r.Session.Store.Attributes["url.intended"].(string)
+	if !ok {
+		path = defaults
+	}
+	r.Session.Store.Forget("url.intended")
+
 	r.Redirect(code, path)
 }
 
 func (r *Redirector) SetIntendedUrl(url string) {
-	r.Session.Store.Flash("url.intended", url)
+	r.Session.Store.Put("url.intended", url)
 }
 
 func (r *Redirector) Guest(code int, path string) {
