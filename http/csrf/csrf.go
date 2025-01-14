@@ -1,6 +1,7 @@
 package csrf
 
 import (
+	"encoding/base64"
 	"errors"
 	"time"
 
@@ -31,10 +32,16 @@ func GetCsrfTokenFromXsrf(c *gin.Context) string {
 		return ""
 	}
 
-	token, err := instance.App.Base().Encryption.Decrypt([]byte(header))
+	decoded, err := base64.StdEncoding.DecodeString(header)
 	if err != nil {
 		return ""
 	}
+
+	token, err := instance.App.Base().Encryption.Decrypt(decoded)
+	if err != nil {
+		return ""
+	}
+
 	return string(token)
 }
 
