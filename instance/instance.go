@@ -7,6 +7,7 @@ import (
 	ut "github.com/go-playground/universal-translator"
 	"github.com/wolftotem4/golava-core/auth"
 	"github.com/wolftotem4/golava-core/auth/generic"
+	"github.com/wolftotem4/golava-core/cookie"
 	"github.com/wolftotem4/golava-core/golava"
 	"github.com/wolftotem4/golava-core/lang"
 	"github.com/wolftotem4/golava-core/routing"
@@ -15,6 +16,7 @@ import (
 
 type Instance struct {
 	App        golava.GolavaApp
+	Cookie     cookie.IEncryptableCookieManager
 	Session    *session.SessionManager
 	Auth       auth.Guard
 	Redirector *routing.Redirector
@@ -23,16 +25,20 @@ type Instance struct {
 
 func NewInstance(app golava.GolavaApp) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		c.Set("instance", &Instance{
+		i := &Instance{
 			App: app,
 			Redirector: &routing.Redirector{
 				Router: app.Base().Router,
 				GIN:    c,
 			},
 			Auth: &generic.NullGuard{},
-		})
+		}
+
+		c.Set("instance", i)
 
 		c.Next()
+
+		i.Dispose()
 	}
 }
 
@@ -72,4 +78,17 @@ func (i *Instance) GetUserPreferredTranslator(options ...lang.TranslatorOption) 
 	}
 
 	return args.Apply(trans)
+}
+
+func (i *Instance) Dispose() {
+	i.Redirector.GIN = nil
+	i.Redirector = nil
+	if i.Cookie != nil {
+		i.Cookie.SetRequest(nil)
+		i.Cookie.SetResponseWriter(nil)
+		i.Cookie = nil
+	}
+	i.App = nil
+	i.Session = nil
+	i.Auth = nil
 }

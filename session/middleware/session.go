@@ -11,45 +11,45 @@ import (
 )
 
 func StartSession(c *gin.Context) {
-	instance := instance.MustGetInstance(c)
-	instance.Session = instance.App.Base().SessionFactory.Make()
-	instance.Redirector.Session = instance.Session
+	i := instance.MustGetInstance(c)
+	i.Session = i.App.Base().SessionFactory.Make()
+	i.Redirector.Session = i.Session
 
 	var sessionId string
 
-	migrateId, _ := instance.App.Base().Cookie.Encryption().Get(instance.Session.GetMigrateName())
+	migrateId, _ := i.Cookie.Encryption().Get(i.Session.GetMigrateName())
 	if migrateId != "" {
 		sessionId = migrateId
 	} else {
-		sessionId, _ = instance.App.Base().Cookie.Encryption().Get(instance.Session.Name)
+		sessionId, _ = i.Cookie.Encryption().Get(i.Session.Name)
 	}
 
 	if sessionId != "" {
-		instance.Session.Store.ID = sessionId
+		i.Session.Store.ID = sessionId
 	}
 
-	err := instance.Session.Store.Start(c)
+	err := i.Session.Store.Start(c)
 	if err != nil {
 		c.Error(err)
 		c.Abort()
 		return
 	}
 
-	err = collectGarbage(c, instance.Session)
+	err = collectGarbage(c, i.Session)
 	if err != nil {
 		c.Error(err)
 		c.Abort()
 		return
 	}
 
-	instance.App.Base().Cookie.Encryption().Set(
-		instance.Session.Name,
-		instance.Session.Store.ID,
-		cookie.WithMaxAge(int(instance.Session.Lifetime.Seconds())),
+	i.Cookie.Encryption().Set(
+		i.Session.Name,
+		i.Session.Store.ID,
+		cookie.WithMaxAge(int(i.Session.Lifetime.Seconds())),
 	)
 
 	if migrateId != "" {
-		instance.App.Base().Cookie.Forget(instance.Session.GetMigrateName())
+		i.Cookie.Forget(i.Session.GetMigrateName())
 	}
 
 	c.Next()

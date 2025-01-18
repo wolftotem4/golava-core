@@ -56,7 +56,7 @@ func VerifyCsrfToken(c *gin.Context) {
 		}
 	}
 
-	addCookieToResponse(instance.App.Base().Cookie, instance.Session.Store.Token(), instance.Session.Lifetime)
+	addCookieToResponse(instance.Cookie, instance.Session.Store.Token(), instance.Session.Lifetime)
 
 	c.Next()
 }

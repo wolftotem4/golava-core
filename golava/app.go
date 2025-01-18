@@ -18,7 +18,7 @@ type App struct {
 	Debug          bool
 	AppKey         []byte
 	Router         *routing.Router
-	Cookie         cookie.IEncryptableCookieManager
+	CookieFactory  *cookie.CookieFactory
 	Encryption     encryption.IEncrypter
 	Hashing        hashing.Hasher
 	SessionFactory *session.SessionFactory
