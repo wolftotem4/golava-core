@@ -4,17 +4,28 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/wolftotem4/golava-core/session"
 )
 
 type PostgresSessionHandler struct {
-	DB *sql.DB
+	DB    *sql.DB
+	Table string
+}
+
+func NewPostgresSessionHandler(db *sql.DB, table string) *PostgresSessionHandler {
+	return &PostgresSessionHandler{
+		DB:    db,
+		Table: table,
+	}
 }
 
 func (d *PostgresSessionHandler) Read(ctx context.Context, sessionId string) ([]byte, error) {
-	row := d.DB.QueryRowContext(ctx, "SELECT payload FROM sessions WHERE id = $1", sessionId)
+	row := d.DB.QueryRowContext(ctx, fmt.Sprintf(
+		`SELECT payload FROM "%s" WHERE id = $1`, d.Table,
+	), sessionId)
 	if err := row.Err(); err != nil {
 		return nil, err
 	}
@@ -32,14 +43,19 @@ func (d *PostgresSessionHandler) Write(ctx context.Context, sessionId string, da
 	now := time.Now().Unix()
 	_, err := d.DB.ExecContext(
 		ctx,
-		"INSERT INTO sessions (id, user_id, ip_address, user_agent, payload, last_activity) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (id) DO UPDATE SET user_id = $2, ip_address = $3, user_agent = $4, payload = $5, last_activity = $6;",
+		fmt.Sprintf(
+			`INSERT INTO "%s" (id, user_id, ip_address, user_agent, payload, last_activity) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (id) DO UPDATE SET user_id = $2, ip_address = $3, user_agent = $4, payload = $5, last_activity = $6;`,
+			d.Table,
+		),
 		sessionId, data.UserID, data.IPAddress, data.UserAgent, data.Payload, now,
 	)
 	return err
 }
 
 func (d *PostgresSessionHandler) GC(ctx context.Context, lifetime time.Duration) (int64, error) {
-	result, err := d.DB.ExecContext(ctx, "DELETE FROM sessions WHERE last_activity <= $1", time.Now().Add(-lifetime).Unix())
+	result, err := d.DB.ExecContext(ctx, fmt.Sprintf(
+		`DELETE FROM "%s" WHERE last_activity <= $1`, d.Table,
+	), time.Now().Add(-lifetime).Unix())
 	if err != nil {
 		return 0, err
 	}
@@ -48,6 +64,8 @@ func (d *PostgresSessionHandler) GC(ctx context.Context, lifetime time.Duration)
 }
 
 func (d *PostgresSessionHandler) Destroy(ctx context.Context, sessionId string) error {
-	_, err := d.DB.ExecContext(ctx, "DELETE FROM sessions WHERE id = $1", sessionId)
+	_, err := d.DB.ExecContext(ctx, fmt.Sprintf(
+		`DELETE FROM "%s" WHERE id = $1`, d.Table,
+	), sessionId)
 	return err
 }
