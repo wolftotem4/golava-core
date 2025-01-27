@@ -10,49 +10,51 @@ import (
 	"github.com/wolftotem4/golava-core/session"
 )
 
-func StartSession(c *gin.Context) {
-	i := instance.MustGetInstance(c)
-	i.Session = i.App.Base().SessionFactory.Make()
-	i.Redirector.Session = i.Session
+func StartSession(factory *session.SessionFactory) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		i := instance.MustGetInstance(c)
+		i.Session = factory.Make()
+		i.Redirector.Session = i.Session
 
-	var sessionId string
+		var sessionId string
 
-	migrateId, _ := i.Cookie.Encryption().Get(i.Session.GetMigrateName())
-	if migrateId != "" {
-		sessionId = migrateId
-	} else {
-		sessionId, _ = i.Cookie.Encryption().Get(i.Session.Name)
+		migrateId, _ := i.Cookie.Encryption().Get(i.Session.GetMigrateName())
+		if migrateId != "" {
+			sessionId = migrateId
+		} else {
+			sessionId, _ = i.Cookie.Encryption().Get(i.Session.Name)
+		}
+
+		if sessionId != "" {
+			i.Session.Store.ID = sessionId
+		}
+
+		err := i.Session.Store.Start(c)
+		if err != nil {
+			c.Error(err)
+			c.Abort()
+			return
+		}
+
+		err = collectGarbage(c, i.Session)
+		if err != nil {
+			c.Error(err)
+			c.Abort()
+			return
+		}
+
+		i.Cookie.Encryption().Set(
+			i.Session.Name,
+			i.Session.Store.ID,
+			cookie.WithMaxAge(int(i.Session.Lifetime.Seconds())),
+		)
+
+		if migrateId != "" {
+			i.Cookie.Forget(i.Session.GetMigrateName())
+		}
+
+		c.Next()
 	}
-
-	if sessionId != "" {
-		i.Session.Store.ID = sessionId
-	}
-
-	err := i.Session.Store.Start(c)
-	if err != nil {
-		c.Error(err)
-		c.Abort()
-		return
-	}
-
-	err = collectGarbage(c, i.Session)
-	if err != nil {
-		c.Error(err)
-		c.Abort()
-		return
-	}
-
-	i.Cookie.Encryption().Set(
-		i.Session.Name,
-		i.Session.Store.ID,
-		cookie.WithMaxAge(int(i.Session.Lifetime.Seconds())),
-	)
-
-	if migrateId != "" {
-		i.Cookie.Forget(i.Session.GetMigrateName())
-	}
-
-	c.Next()
 }
 
 func collectGarbage(ctx context.Context, session *session.SessionManager) error {
