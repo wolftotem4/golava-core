@@ -13,7 +13,7 @@ import (
 func StartSession(factory *session.SessionFactory) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		i := instance.MustGetInstance(c)
-		i.Session = factory.Make()
+		i.Session = factory.Make(session.NewSessionId())
 		i.Redirector.Session = i.Session
 
 		var sessionId string

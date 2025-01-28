@@ -9,8 +9,12 @@ type SessionFactory struct {
 	Handler  SessionHandler
 }
 
-func (sm *SessionFactory) Make() *SessionManager {
-	store := NewStore(NewSessionId(), sm.Handler)
+func (sm *SessionFactory) Make(sessionId string) *SessionManager {
+	if sessionId == "" {
+		sessionId = NewSessionId()
+	}
+
+	store := NewStore(sessionId, sm.Handler)
 
 	return &SessionManager{
 		Name:     sm.Name,
