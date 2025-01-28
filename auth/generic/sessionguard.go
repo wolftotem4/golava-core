@@ -252,6 +252,7 @@ func (sg *SessionGuard) login(ctx context.Context, user auth.Authenticatable, re
 		sg.Session.Name,
 		sg.Session.Store.ID,
 		cookie.WithMaxAge(int(sg.Session.Lifetime.Seconds())),
+		cookie.WithHttpOnly(sg.Session.HttpOnly),
 	)
 
 	return sg.setUser(ctx, user, true, newhash)

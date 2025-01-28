@@ -47,6 +47,7 @@ func StartSession(factory *session.SessionFactory) gin.HandlerFunc {
 			i.Session.Name,
 			i.Session.Store.ID,
 			cookie.WithMaxAge(int(i.Session.Lifetime.Seconds())),
+			cookie.WithHttpOnly(i.Session.HttpOnly),
 		)
 
 		if migrateId != "" {
