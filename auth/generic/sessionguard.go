@@ -124,6 +124,11 @@ func (sg *SessionGuard) validate(ctx context.Context, credentials map[string]any
 	}
 
 	valid, err := sg.Provider.ValidateCredentials(ctx, user, credentials)
+	if err != nil {
+		return user, false, err
+	} else if !valid {
+		return user, false, nil
+	}
 
 	if sg.Callbacks != nil {
 		err := sg.Callbacks.Validated(ctx, sg.Name, user)
