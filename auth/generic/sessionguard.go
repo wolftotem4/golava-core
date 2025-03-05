@@ -42,7 +42,7 @@ type SessionGuard struct {
 	// 		}),
 	// 	}
 	//
-	// See [github.com/wolftotem4/golava-core/auth/callback] for more information.
+	// See https://pkg.go.dev/github.com/wolftotem4/golava-core/auth/callback for more information.
 	Callbacks callback.Callbacks
 
 	user            auth.Authenticatable
